@@ -1,14 +1,14 @@
-<!-- Who we dive with / Abyssal zone: urchin reacts to the cursor -->
+<!-- 04 Abyssal zone: bioluminescent jellyfish, click to ping -->
 <template>
-  <section class="sec with" data-scene="2" data-zone="Abyssal zone" data-fg="#A6FFE0" data-bg="#022620">
+  <section class="sec with" data-scene="3" data-zone="Abyssal zone" data-fg="#F3E6FF" data-bg="#070818">
     <div class="site grid split split--rev">
-      <div class="tracker split__tracker" data-track="urchin"></div>
+      <div class="tracker split__tracker" data-track="jelly"></div>
       <div class="split__copy">
-        <p class="eyebrow" data-reveal>Who we dive with</p>
-        <h2 class="h2" data-split>PARTNERS WHO<br>GO ALL THE WAY</h2>
+        <p class="meta mono" data-reveal><span>04</span><span>Abyssal zone</span><span>4,000–6,000 m</span></p>
+        <h2 class="h2" data-split>Partners who<br>go <em>all</em> the way</h2>
         <p class="body" data-reveal>We work with universities, aquariums, documentary studios and brands who believe the ocean deserves a bigger audience.</p>
-        <p class="body" data-reveal>Every partnership is a chance to change how people see the planet's largest habitat, and to make sure they remember it.</p>
-        <p class="eyebrow with__hint" data-reveal>Move your cursor over the urchin</p>
+        <ul class="partners mono" data-reveal><li>Universities</li><li>Aquariums</li><li>Documentary studios</li><li>Ocean brands</li></ul>
+        <p class="mono hint" data-reveal>Click a jellyfish to ping it.</p>
       </div>
     </div>
   </section>

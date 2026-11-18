@@ -1,17 +1,18 @@
-<!-- What we explore / Twilight zone: pinned section, service markers pin to the jellyfish -->
+<!-- 02 Twilight zone: pinned; a blue whale and calf pass, service labels ride on the whale -->
 <template>
-  <section class="sec services" id="explore" data-scene="0" data-zone="Twilight zone" data-fg="#E6FBF7" data-bg="#06283D">
+  <section class="sec services" id="explore" data-scene="1" data-zone="Twilight zone" data-fg="#E8F7FB" data-bg="#0B3F57">
     <div class="services__sticky">
       <div class="site services__head">
-        <p class="eyebrow" data-reveal>What we explore</p>
-        <h2 class="h1 services__title" data-split>WHERE LIGHT<br>ENDS, WE BEGIN</h2>
-        <p class="body services__text" data-reveal>We specialise in places no light has ever touched. Every expedition blends science, sound and film to bring a hidden world back to the surface.</p>
+        <p class="meta mono" data-reveal><span>02</span><span>Twilight zone</span><span>200–1,000 m</span></p>
+        <h2 class="h1 services__title" data-split>Where light <em>ends,</em><br>we begin</h2>
       </div>
-      <div class="tracker services__tracker" data-track="jelly-services"></div>
-      <ul class="services__list" aria-label="Our fields">
-        <li>Bioluminescence</li><li>Hydrothermal vents</li><li>Trench mapping</li><li>Marine acoustics</li><li>Deep-sea film</li><li>Species discovery</li><li>Ocean data &amp; AI</li>
-      </ul>
-      <p class="eyebrow services__hint">Click the jellyfish to send a sonar ping</p>
+      <div class="site services__foot">
+        <p class="body services__text" data-reveal>We specialise in places no light has ever touched. Every expedition blends science, sound and film to bring a hidden world to the surface.</p>
+        <ol class="services__list mono">
+          <li><span>01</span>Bioluminescence</li><li><span>02</span>Hydrothermal vents</li><li><span>03</span>Trench mapping</li><li><span>04</span>Marine acoustics</li><li><span>05</span>Deep-sea film</li><li><span>06</span>Species discovery</li><li><span>07</span>Ocean data &amp; AI</li>
+        </ol>
+      </div>
+      <p class="mono services__hint">A blue whale passes · 30 m long · 150 tonnes</p>
     </div>
   </section>
 </template>

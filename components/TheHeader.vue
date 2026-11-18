@@ -1,10 +1,10 @@
-<!-- Fixed header: logo, nav, sound toggle, depth meter -->
+<!-- Fixed header (logo, live timecode, nav, sound) plus depth readout and depth rail -->
 <template>
+  <div class="chrome">
   <header class="sh">
     <div class="sh__top">
-      <a href="#top" class="logo" data-sfx="hover" aria-label="Abyssal, back to top">
-        <span>A</span><span>B</span><span>Y</span><span>S</span><span>S</span><span>A</span><span>L</span>
-      </a>
+      <a href="#top" class="logo" data-sfx="hover" aria-label="Abyssal, back to top"><span>a</span><span>b</span><span>y</span><span>s</span><span>s</span><span>a</span><span>l</span><sup>°</sup></a>
+      <p class="mono sh__rec"><span class="rec-dot"></span>ROV-02 · Live <span class="tc">00:00:00:00</span></p>
       <nav class="sh__nav" aria-label="Main">
         <a href="#explore" class="uline" data-sfx="hover">Expeditions</a>
         <a href="#crew" class="uline" data-sfx="hover">Crew</a>
@@ -14,12 +14,14 @@
       </nav>
     </div>
     <div class="sh__bottom">
-      <div class="depth">
-        <span class="eyebrow depth__label">Depth</span>
-        <span class="depth__value"><span class="depth__num">00000</span> m</span>
-        <span class="eyebrow depth__zone">Sunlight zone</span>
+      <div class="readout">
+        <p class="mono readout__k">Depth</p>
+        <p class="readout__v"><span class="depth__num">00000</span><small>m</small></p>
+        <p class="mono readout__meta"><span class="depth__zone">Sunlight zone</span><span class="temp">18.4 °C</span><span class="pres">1 atm</span></p>
       </div>
-      <div class="sh__scroll eyebrow">Scroll to descend <span class="sh__arrow">↓</span></div>
+      <p class="mono sh__scroll">Scroll to descend <span class="sh__arrow">↓</span></p>
     </div>
   </header>
+  <div class="rail" aria-hidden="true"><div class="rail__ticks"></div><div class="rail__needle"></div></div>
+  </div>
 </template>
