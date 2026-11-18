@@ -5,10 +5,12 @@
     <TheHeader />
     <main id="top">
       <HeroSection />
+      <MarqueeSurface />
       <ServicesSection />
       <WhoSection />
       <WithSection />
       <HowSection />
+      <MarqueeDeep />
       <ContactSection />
     </main>
     <SiteFooter />
