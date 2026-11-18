@@ -1,7 +1,4 @@
 /* Sound: generated live with Web Audio, no audio files */
-/* -------------------------------------------------------------------------
-   Sound — generated live with Web Audio (no audio files)
-   ------------------------------------------------------------------------- */
 export class Sound {
   constructor() { this.on = false; this.ready = false; }
   init() {
@@ -31,15 +28,16 @@ export class Sound {
 
       // One pad per scene; the scroll position crossfades them
       const chords = [
+        [130.81, 196.0, 261.63, 329.63, 392.0],
         [110.0, 164.81, 220.0, 277.18, 329.63],
         [98.0, 146.83, 196.0, 233.08, 293.66],
         [87.31, 130.81, 174.61, 207.65, 261.63],
         [73.42, 110.0, 146.83, 155.56, 220.0],
-        [130.81, 196.0, 261.63, 329.63, 392.0],
+        [146.83, 220.0, 293.66, 369.99, 440.0],
       ];
       this.pads = chords.map((ch, i) => {
         const g = ctx.createGain(); g.gain.value = 0;
-        const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = i === 4 ? 2000 : 850; f.Q.value = 0.4;
+        const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = (i === 0 || i === 5) ? 1900 : 850; f.Q.value = 0.4;
         f.connect(g); g.connect(this.master); g.connect(this.verb);
         ch.forEach((hz, k) => {
           [-5, 5].forEach(det => {
@@ -51,7 +49,7 @@ export class Sound {
           });
         });
         const l = ctx.createOscillator(); l.frequency.value = 0.05 + i * 0.013;
-        const lg = ctx.createGain(); lg.gain.value = i === 4 ? 600 : 280;
+        const lg = ctx.createGain(); lg.gain.value = (i === 0 || i === 5) ? 600 : 280;
         l.connect(lg); lg.connect(f.frequency); l.start();
         return g;
       });
@@ -94,10 +92,35 @@ export class Sound {
     if (echo) g.connect(this.echo);
     o.start(t); o.stop(t + dur + 0.05);
   }
-  dispose() {
-    try { this.ctx && this.ctx.close(); } catch (e) { /* ignore */ }
-    this.ready = false; this.on = false;
+  noiseBurst(dur = 0.6, from = 1400, to = 300, vol = 0.18) {
+    if (!this.ready || !this.on) return;
+    const ctx = this.ctx, t = ctx.currentTime, len = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
+    bp.frequency.setValueAtTime(from, t); bp.frequency.exponentialRampToValueAtTime(to, t + dur);
+    const g = ctx.createGain(); g.gain.value = vol;
+    src.connect(bp); bp.connect(g); g.connect(this.master);
+    const s = ctx.createGain(); s.gain.value = 0.5; g.connect(s); s.connect(this.verb);
+    src.start(t);
   }
+  splash() { this.noiseBurst(0.7, 1800, 250, 0.22); this.bubbles(); }
+  whale() {
+    if (!this.ready || !this.on) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    [[190, 105, 0.11], [380, 210, 0.03]].forEach(([a, b, v]) => {
+      const o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(a, t); o.frequency.exponentialRampToValueAtTime(b, t + 3.2);
+      const vib = ctx.createOscillator(); vib.frequency.value = 4.5;
+      const vg = ctx.createGain(); vg.gain.value = a * 0.03; vib.connect(vg); vg.connect(o.frequency); vib.start(t); vib.stop(t + 3.6);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.5);
+      o.connect(g); g.connect(this.master); const s = ctx.createGain(); s.gain.value = 1.2; g.connect(s); s.connect(this.verb); g.connect(this.echo);
+      o.start(t); o.stop(t + 3.6);
+    });
+  }
+  shark() { this.tone({ freq: 55, to: 48, dur: 1.6, type: 'sine', vol: 0.2, verb: 0.6 }); this.tone({ freq: 58.3, dur: 1.4, type: 'sine', vol: 0.12, verb: 0.6 }); }
+  dispose() { try { if (this.ctx) this.ctx.close(); } catch (e) { /* ignore */ } this.ready = false; this.on = false; }
   hover() { this.tone({ freq: 2300, to: 1700, dur: 0.07, vol: 0.03, verb: 0.15 }); }
   click() { this.tone({ freq: 520, to: 240, dur: 0.2, type: 'triangle', vol: 0.08, verb: 0.2 }); }
   ping() { this.tone({ freq: 1480, dur: 1.8, vol: 0.14, verb: 0.9, attack: 0.002, echo: true }); this.tone({ freq: 2220, dur: 0.8, vol: 0.03, verb: 0.9 }); }
