@@ -12,14 +12,14 @@ export default defineNuxtConfig({
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'description', content: 'Abyssal is a deep-ocean exploration studio. We dive where light ends and bring what we find back to the surface.' },
+        { name: 'description', content: 'Abyssal is an ocean exploration studio. We dive, film and listen below a thousand metres, then bring it back to the surface.' },
         { property: 'og:title', content: 'Abyssal — Into the Deep' },
         { property: 'og:type', content: 'website' },
       ],
       link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700&family=Unbounded:wght@400;500&display=swap' },
+        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap' },
       ],
     },
   },
