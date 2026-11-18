@@ -6,11 +6,12 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import { $, $$, clamp, lerp, smoothstep, mqMobile, state, env, resetState, renderer, initRenderer, disposeRenderer } from '../webgl/core';
 import { Compositor } from '../webgl/compositor';
-import { JellyScene, MARKERS } from '../webgl/scenes/jelly';
-import { ShellScene } from '../webgl/scenes/shell';
-import { UrchinScene } from '../webgl/scenes/urchin';
+import { SunlightScene } from '../webgl/scenes/sunlight';
+import { WhaleScene, WHALE_LABELS, WHALE_LAYOUT } from '../webgl/scenes/whale';
+import { SharkScene } from '../webgl/scenes/shark';
+import { JelliesScene } from '../webgl/scenes/jellies';
 import { SonarScene } from '../webgl/scenes/sonar';
-import { SurfaceScene } from '../webgl/scenes/surface';
+import { ResurfaceScene } from '../webgl/scenes/resurface';
 import { sound } from '../audio/sound';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -29,17 +30,17 @@ export function createExperience() {
   // Section colours (also used by the no-WebGL fallback)
   $$('.sec').forEach(s => { s.style.setProperty('--sec-fg', s.dataset.fg); s.style.setProperty('--sec-bg', s.dataset.bg); });
 
-
   /* -------------------------------------------------------------------------
      Build the stage
      ------------------------------------------------------------------------- */
   let scenes = [], compositor = null;
   if (renderer) {
-    scenes = [new JellyScene(), new ShellScene(), new UrchinScene(), new SonarScene(), new SurfaceScene()];
+    scenes = [new SunlightScene(), new WhaleScene(), new SharkScene(), new JelliesScene(), new SonarScene(), new ResurfaceScene()];
     compositor = new Compositor();
   }
   const sections = $$('.sec');
   const footer = $('.footer');
+  const root = document.documentElement;
 
   /* -------------------------------------------------------------------------
      Smooth scroll
@@ -48,12 +49,12 @@ export function createExperience() {
   const lenisRaf = t => { if (lenis) lenis.raf(t * 1000); };
   if (!env.reducedMotion) {
     lenis = new Lenis({ lerp: 0.1, smoothWheel: true, wheelMultiplier: 0.9 });
-    lenis.on('scroll', ScrollTrigger.update);
+    lenis.on('scroll', e => { ScrollTrigger.update(); state.scrollV = e.velocity || 0; });
     gsap.ticker.add(lenisRaf);
     gsap.ticker.lagSmoothing(0);
     lenis.stop();
   } else {
-    document.documentElement.style.overflow = 'hidden';
+    root.style.overflow = 'hidden';
   }
   function scrollToTarget(target) {
     if (lenis) lenis.scrollTo(target, { duration: 1.8, easing: t => 1 - Math.pow(1 - t, 4) });
@@ -62,26 +63,34 @@ export function createExperience() {
   }
 
   /* -------------------------------------------------------------------------
-     DOM: split text, reveals, hero claims
+     Split text and reveals
      ------------------------------------------------------------------------- */
   function splitWords(el) {
-    const out = [];
-    [...el.childNodes].forEach(node => {
-      if (node.nodeType === 3) {
-        node.textContent.split(/(\s+)/).forEach(part => {
-          if (!part) return;
-          if (/^\s+$/.test(part)) { out.push(document.createTextNode(' ')); return; }
-          const w = document.createElement('span'); w.className = 'w';
-          const i = document.createElement('span'); i.textContent = part;
-          w.appendChild(i); out.push(w);
-        });
-      } else out.push(node.cloneNode(true));
-    });
+    const walk = (node, into) => {
+      [...node.childNodes].forEach(child => {
+        if (child.nodeType === 3) {
+          child.textContent.split(/(\s+)/).forEach(part => {
+            if (!part) return;
+            if (/^\s+$/.test(part)) { into.appendChild(document.createTextNode(' ')); return; }
+            const w = document.createElement('span'); w.className = 'w';
+            const i = document.createElement('span'); i.textContent = part;
+            w.appendChild(i); into.appendChild(w);
+          });
+        } else if (child.nodeName === 'BR') {
+          into.appendChild(document.createElement('br'));
+        } else {
+          const clone = child.cloneNode(false);
+          walk(child, clone);
+          into.appendChild(clone);
+        }
+      });
+    };
+    const frag = document.createDocumentFragment();
+    walk(el, frag);
     el.textContent = '';
-    out.forEach(n => el.appendChild(n));
+    el.appendChild(frag);
     return $$('.w > span', el);
   }
-
   $$('[data-split]').forEach(el => {
     const words = splitWords(el);
     gsap.from(words, { yPercent: 115, duration: 1.3, ease: 'expo.out', stagger: 0.05, scrollTrigger: { trigger: el, start: 'top 88%' } });
@@ -106,18 +115,28 @@ export function createExperience() {
     hideClaim(claimIndex);
     claimIndex = (claimIndex + 1) % claims.length;
     showClaim(claimIndex, 0.55);
-    gsap.delayedCall(5, cycleClaims);
+    gsap.delayedCall(5.5, cycleClaims);
   }
 
   /* -------------------------------------------------------------------------
-     Header: theme colour, depth meter, active links
+     Instruments: theme colour, depth readout, depth rail, live timecode
      ------------------------------------------------------------------------- */
-  const root = document.documentElement;
-  const depthNum = $('.depth__num');
   const shEl = $('.sh');
-  const depthZone = $('.depth__zone');
+  const depthNum = $('.depth__num'), depthZone = $('.depth__zone'), tempEl = $('.temp'), presEl = $('.pres');
+  const tcEl = $('.tc');
+  const railTicks = $('.rail__ticks');
+  const MAX_DEPTH = 10994, RAIL_K = 0.06;   // px per metre at a 1920 artboard
+  (function buildRail() {
+    let html = '';
+    for (let d = 0; d <= 11000; d += 250) {
+      const major = d % 1000 === 0;
+      html += `<i class="rail__tick${major ? ' is-major' : ''}" style="top:${(d * RAIL_K).toFixed(1)}rem">${major ? `<span>${d === 0 ? '0 m' : d / 1000 + ' km'}</span>` : ''}</i>`;
+    }
+    railTicks.innerHTML = html;
+  })();
   let lastFg = '', lastZone = '', lastDepth = -1;
-  function updateHeader() {
+  const contactEl = $('.contact');
+  function updateInstruments() {
     const mid = state.h * 0.5;
     let active = sections[0];
     for (const s of sections) { const r = s.getBoundingClientRect(); if (r.top <= mid) active = s; }
@@ -125,47 +144,76 @@ export function createExperience() {
     const fg = fr.top <= state.h * 0.15 ? footer.dataset.fg : active.dataset.fg;
     const zone = fr.top <= mid ? 'Surface' : active.dataset.zone;
     if (fg !== lastFg) { root.style.setProperty('--fg', fg); lastFg = fg; }
-    shEl.classList.toggle('is-footer', fr.top < state.h - 60);
-    shEl.classList.toggle('is-top', (window.scrollY || 0) < state.h * 0.25);
     if (zone !== lastZone) { depthZone.textContent = zone; lastZone = zone; }
-    const max = Math.max(1, document.documentElement.scrollHeight - state.h);
+    shEl.classList.toggle('is-footer', fr.top < state.h - 60);
+    shEl.classList.toggle('is-light', fg === '#03263A');
+    shEl.classList.toggle('is-top', (window.scrollY || 0) < state.h * 0.25);
+    const max = Math.max(1, root.scrollHeight - state.h);
     const y = window.scrollY || 0;
-    const contactTop = $('.contact').offsetTop;
-    // Depth climbs to the Challenger Deep, then you resurface for the contact section
-    let depth = y < contactTop - state.h ? (y / Math.max(1, contactTop - state.h)) * 10994 : 10994 * (1 - clamp((y - (contactTop - state.h)) / Math.max(1, max - (contactTop - state.h))));
-    depth = Math.round(clamp(depth, 0, 10994));
-    if (depth !== lastDepth) { depthNum.textContent = String(depth).padStart(5, '0'); lastDepth = depth; }
+    const turn = Math.max(1, contactEl.offsetTop - state.h);
+    let depth = y < turn ? (y / turn) * MAX_DEPTH : MAX_DEPTH * (1 - clamp((y - turn) / Math.max(1, max - turn)));
+    depth = Math.round(clamp(depth, 0, MAX_DEPTH));
+    if (depth !== lastDepth) {
+      lastDepth = depth;
+      depthNum.textContent = String(depth).padStart(5, '0');
+      tempEl.textContent = (2 + 16.4 * Math.exp(-depth / 500)).toFixed(1) + ' °C';
+      presEl.textContent = Math.round(1 + depth / 10).toLocaleString('en-US') + ' atm';
+      const railH = state.h * 0.56;
+      const remPx = parseFloat(getComputedStyle(root).fontSize);
+      railTicks.style.transform = `translate3d(0, ${(railH / 2 - depth * RAIL_K * remPx).toFixed(1)}px, 0)`;
+    }
+    if (state.started) {
+      const s = state.time - startedAt;
+      const f = Math.floor((s % 1) * 25), ss = Math.floor(s) % 60, mm = Math.floor(s / 60) % 60, hh = Math.floor(s / 3600);
+      tcEl.textContent = [hh, mm, ss, f].map(v => String(v).padStart(2, '0')).join(':');
+    }
+  }
+  let startedAt = 0;
+
+  /* -------------------------------------------------------------------------
+     Species tickers (speed up while you scroll)
+     ------------------------------------------------------------------------- */
+  const marquees = $$('.marquee').map(m => {
+    const track = $('.marquee__track', m);
+    track.innerHTML += track.innerHTML;
+    return { el: m, track, x: 0, dir: +m.dataset.dir || -1, half: 0 };
+  });
+  function measureMarquees() { marquees.forEach(m => { m.half = m.track.scrollWidth / 2; }); }
+  function updateMarquees(dt) {
+    const boost = Math.min(Math.abs(state.scrollV) * 18, 900);
+    marquees.forEach(m => {
+      if (!m.half) return;
+      m.x += m.dir * (55 + boost) * dt;
+      if (m.x <= -m.half) m.x += m.half;
+      if (m.x > 0) m.x -= m.half;
+      m.track.style.transform = `translate3d(${m.x.toFixed(1)}px, 0, 0)`;
+    });
   }
 
   /* -------------------------------------------------------------------------
-     Service markers (DOM labels pinned to points on the jellyfish)
+     Service labels riding on the whale
      ------------------------------------------------------------------------- */
   const markersEl = $('.markers');
-  markersEl.innerHTML = MARKERS.map(m => `<div class="marker"><span class="marker__dot"></span><span class="marker__line"></span><span class="marker__label">${m}</span></div>`).join('');
+  markersEl.innerHTML = WHALE_LABELS.map((m, i) => `<div class="marker${WHALE_LAYOUT[i][0] ? ' is-down' : ''}"><span class="marker__label"><b>0${i + 1}</b>${m}</span><span class="marker__line" style="height:${WHALE_LAYOUT[i][1]}rem"></span><span class="marker__dot"></span></div>`).join('');
   const markerEls = $$('.marker', markersEl);
-  let markerWidths = [];
-  function measureMarkers() { markerWidths = markerEls.map(el => el.offsetWidth); }
-  const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _c = new THREE.Vector3();
+  let markerSizes = [];
+  function measureMarkers() { markerSizes = markerEls.map(el => [el.offsetWidth, el.offsetHeight]); }
+  const _v = new THREE.Vector3();
   function updateMarkers(visibility) {
     if (!scenes.length || mqMobile()) return;
-    const js = scenes[0], j = js.jelly, cam = js.camera;
-    const sp = js.servicesProgress;
-    const center = j.bell.getWorldPosition(_c).clone().project(cam);
-    const cx = (center.x * 0.5 + 0.5) * state.w;
-    j.group.updateMatrixWorld();
+    const ws = scenes[1], cam = ws.camera, sp = ws.sp;
+    ws.group.updateMatrixWorld();
     markerEls.forEach((el, i) => {
-      const reveal = smoothstep(0.06 + i * 0.075, 0.12 + i * 0.075, sp) * (1 - smoothstep(0.9, 0.98, sp));
-      _v.copy(j.anchors[i]); j.bell.localToWorld(_v);
-      _n.copy(j.anchors[i]).normalize().transformDirection(j.bell.matrixWorld);
-      const facing = _n.dot(_c.copy(cam.position).sub(_v).normalize());
-      const op = reveal * smoothstep(0.05, 0.35, facing) * visibility;
-      const p = _v.clone().project(cam);
+      const reveal = smoothstep(0.08 + i * 0.05, 0.13 + i * 0.05, sp) * (1 - smoothstep(0.9, 0.98, sp));
+      _v.copy(ws.anchors[i]); ws.whale.localToWorld(_v);
+      const p = _v.project(cam);
       const x = (p.x * 0.5 + 0.5) * state.w, y = (-p.y * 0.5 + 0.5) * state.h;
-      const left = x < cx;
-      el.classList.toggle('is-left', left);
-      const w = markerWidths[i] || 0;
+      const edge = smoothstep(0.04, 0.14, x / state.w) * (1 - smoothstep(0.86, 0.96, x / state.w));
+      const op = reveal * edge * visibility;
+      const [w, h] = markerSizes[i] || [0, 0];
+      const down = WHALE_LAYOUT[i][0] === 1;
       el.style.opacity = op.toFixed(3);
-      el.style.transform = `translate3d(${(left ? x - w + 5 : x - 5).toFixed(1)}px, ${(y - el.offsetHeight / 2).toFixed(1)}px, 0)`;
+      el.style.transform = `translate3d(${(x - w / 2).toFixed(1)}px, ${(down ? y - 4 : y - h + 4).toFixed(1)}px, 0)`;
     });
   }
 
@@ -176,22 +224,23 @@ export function createExperience() {
   const cursorLabel = $('.cursor__label');
   const cur = { x: state.w / 2, y: state.h / 2 };
   let cursorText = '';
+  let overUi = false;
   if (env.finePointer) root.classList.add('has-cursor');
-  let overFooter = false;
   on(document, 'pointerover', e => {
-    cursorEl.classList.toggle('is-link', !!e.target.closest('a, button, input, .step'));
-    overFooter = !!e.target.closest('.footer');
+    const link = !!e.target.closest('a, button, input, .step');
+    cursorEl.classList.toggle('is-link', link);
+    overUi = link || !!e.target.closest('.footer');
   });
+  function activeSceneIndex() {
+    const { cur: a, next: b, p } = state.stage;
+    return +sections[p > 0.5 && b !== null ? b : a].dataset.scene;
+  }
   function updateCursor() {
     cur.x = lerp(cur.x, state.mouse.x, 0.22);
     cur.y = lerp(cur.y, state.mouse.y, 0.22);
     cursorEl.style.transform = `translate3d(${cur.x.toFixed(1)}px, ${cur.y.toFixed(1)}px, 0)`;
     let label = '';
-    if (state.started && scenes.length && !overFooter && !cursorEl.classList.contains('is-link')) {
-      const { cur: a, next: b, p } = state.stage;
-      const s = scenes[p > 0.5 && b !== null ? sections[b].dataset.scene : sections[a].dataset.scene];
-      label = s && s.cursor ? s.cursor() : '';
-    }
+    if (state.started && scenes.length && !overUi) label = scenes[activeSceneIndex()].cursor();
     if (label !== cursorText) {
       cursorText = label;
       cursorEl.classList.toggle('has-label', !!label);
@@ -202,25 +251,19 @@ export function createExperience() {
   /* -------------------------------------------------------------------------
      Input
      ------------------------------------------------------------------------- */
-  on(window, 'pointermove', e => {
+  const setMouse = e => {
     state.mouse.x = e.clientX; state.mouse.y = e.clientY;
     state.mouse.nx = (e.clientX / state.w) * 2 - 1;
     state.mouse.ny = -(e.clientY / state.h) * 2 + 1;
-    state.mouse.moved = true;
-  }, { passive: true });
-
+  };
+  on(window, 'pointermove', e => { setMouse(e); state.mouse.moved = true; }, { passive: true });
   on(window, 'pointerdown', e => {
-    if (!state.started) return;
-    if (e.target.closest('a, button, input, form, .step, .gate')) return;
-    state.mouse.x = e.clientX; state.mouse.y = e.clientY;
-    state.mouse.nx = (e.clientX / state.w) * 2 - 1;
-    state.mouse.ny = -(e.clientY / state.h) * 2 + 1;
-    if (!scenes.length) return;
-    const { cur: a, next: b, p } = state.stage;
-    const idx = p > 0.5 && b !== null ? b : a;
-    scenes[sections[idx].dataset.scene]?.onClick();
+    if (!state.started || !scenes.length) return;
+    if (e.target.closest('a, button, input, form, .step, .gate, .footer')) return;
+    setMouse(e);
+    const res = scenes[activeSceneIndex()].onClick();
+    if (res === 'ripple') compositor.ripple(e.clientX / state.w, 1 - e.clientY / state.h, 1);
   });
-
   on(document, 'click', e => {
     const a = e.target.closest('a[href^="#"]');
     if (!a) return;
@@ -229,12 +272,9 @@ export function createExperience() {
     sound.click();
     scrollToTarget(id === '#top' ? 0 : $(id));
   });
-
-  // Haptic sounds
   $$('[data-sfx="hover"]').forEach(el => el.addEventListener('pointerenter', () => sound.hover()));
   $$('[data-sfx="step"]').forEach(el => el.addEventListener('pointerenter', () => sound.step(+el.dataset.i)));
 
-  // Sound toggle
   const sndBtn = $('.snd');
   sndBtn.addEventListener('click', () => {
     if (!sound.ready) sound.init();
@@ -242,7 +282,6 @@ export function createExperience() {
     sndBtn.setAttribute('aria-pressed', String(sound.on));
   });
 
-  // Newsletter (no backend in this concept)
   $('.signup').addEventListener('submit', e => {
     e.preventDefault();
     const input = $('.signup__input'), msg = $('.signup__msg');
@@ -255,18 +294,17 @@ export function createExperience() {
      Gate → dive
      ------------------------------------------------------------------------- */
   const gate = $('.gate');
-  gsap.set('.sh', { autoAlpha: 0 });
+  gsap.set(['.sh', '.hud', '.rail'], { autoAlpha: 0 });
   gsap.set('.hero [data-reveal]', { autoAlpha: 0, y: 30 });
   gsap.set('.gline > span', { yPercent: 110 });
   gsap.to('.gline > span', { yPercent: 0, duration: 1.4, ease: 'expo.out', stagger: 0.1, delay: 0.2 });
-  gsap.from('.gate__meta', { autoAlpha: 0, y: 20, duration: 1.2, ease: 'expo.out', delay: 0.7 });
+  gsap.from(['.gate__brief', '.gate__meta'], { autoAlpha: 0, y: 20, duration: 1.2, ease: 'expo.out', delay: 0.7, stagger: 0.1 });
 
-  // Loading readout: fonts + first frames
   const pct = $('.gate__pct');
   const load = { v: 0 };
   gsap.to(load, { v: 70, duration: 0.9, ease: 'power2.out', onUpdate: () => { pct.textContent = Math.round(load.v); } });
   (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
-    measureMarkers();
+    measureMarkers(); measureMarquees();
     gsap.to(load, { v: 100, duration: 0.5, onUpdate: () => { pct.textContent = Math.round(load.v); },
       onComplete: () => { $('.gate__loading').textContent = 'Cabin sealed'; } });
     ScrollTrigger.refresh();
@@ -275,11 +313,13 @@ export function createExperience() {
   function start() {
     if (state.started) return;
     state.started = true;
+    startedAt = state.time;
     sound.init();
     sound.setOn(true);
     sndBtn.setAttribute('aria-pressed', String(sound.on));
     sound.tone({ freq: 196, to: 98, dur: 2.2, vol: 0.12, verb: 0.9 });
-
+    sound.splash();
+    if (compositor) compositor.ripple(0.5, 0.5, 1.4);
     const cols = $$('.tcols i');
     const tl = gsap.timeline();
     tl.to('.gate__inner, .gate__loading', { autoAlpha: 0, y: -30, duration: 0.5, ease: 'power2.in' })
@@ -292,14 +332,16 @@ export function createExperience() {
     gsap.to(state.intro, { v: 1, duration: 2.6, ease: 'expo.out', delay: 0.6 });
   }
   function intro() {
-    if (lenis) lenis.start(); else document.documentElement.style.overflow = '';
-    gsap.to('.sh', { autoAlpha: 1, duration: 0.4 });
-    gsap.from('.logo span', { yPercent: 110, duration: 1.2, ease: 'expo.out', stagger: 0.05 });
-    gsap.from('.sh__nav > *', { autoAlpha: 0, y: -12, duration: 1, ease: 'expo.out', stagger: 0.06, delay: 0.2 });
-    gsap.from('.sh__bottom > *', { autoAlpha: 0, y: 16, duration: 1, ease: 'expo.out', stagger: 0.08, delay: 0.3 });
+    window.scrollTo(0, 0);
+    if (lenis) { lenis.scrollTo(0, { immediate: true, force: true }); lenis.start(); } else root.style.overflow = '';
+    gsap.to(['.sh', '.hud', '.rail'], { autoAlpha: 1, duration: 0.6 });
+    gsap.from('.logo span, .logo sup', { yPercent: 110, duration: 1.2, ease: 'expo.out', stagger: 0.05 });
+    gsap.from('.sh__nav > *, .sh__rec', { autoAlpha: 0, y: -12, duration: 1, ease: 'expo.out', stagger: 0.06, delay: 0.2 });
+    gsap.from('.sh__scroll', { autoAlpha: 0, y: 16, duration: 1, ease: 'expo.out', delay: 0.3 });
+    gsap.from('.hud__c', { scale: 2.2, autoAlpha: 0, duration: 1.4, ease: 'expo.out', stagger: 0.06, delay: 0.2 });
     gsap.to('.hero [data-reveal]', { autoAlpha: 1, y: 0, duration: 1.4, ease: 'expo.out', stagger: 0.1, delay: 0.5 });
     showClaim(0, 0.2);
-    gsap.delayedCall(5.5, cycleClaims);
+    gsap.delayedCall(6, cycleClaims);
   }
   gate.addEventListener('click', start);
   gate.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(); } });
@@ -318,7 +360,8 @@ export function createExperience() {
         scenes.forEach(s => s.resize());
         compositor.resize();
       }
-      measureMarkers();
+      measureMarkers(); measureMarquees();
+      lastDepth = -1;
       ScrollTrigger.refresh();
     }, 120);
   });
@@ -338,7 +381,7 @@ export function createExperience() {
     return state.stage;
   }
 
-  const weights = [0, 0, 0, 0, 0];
+  const weights = [0, 0, 0, 0, 0, 0];
   const tick = (time, deltaMs) => {
     const dt = Math.min(deltaMs / 1000, 0.05);
     state.time += dt;
@@ -346,6 +389,7 @@ export function createExperience() {
     const m = state.mouse;
     m.sx = lerp(m.sx, m.nx, 0.05);
     m.sy = lerp(m.sy, m.ny, 0.05);
+    state.scrollV *= 0.92;
 
     const st = computeStage();
     const sa = +sections[st.cur].dataset.scene;
@@ -356,8 +400,8 @@ export function createExperience() {
       if (sb !== null && st.p > 0) active.add(sb);
       active.forEach(i => scenes[i].update(t, dt));
       compositor.render(scenes, sa, sb, st.p, t);
-      const jellyVis = sa === 0 ? (sb === 0 || sb === null ? 1 : 1 - st.p) : 0;
-      updateMarkers(jellyVis);
+      const whaleVis = sa === 1 ? (sb === 1 || sb === null ? 1 : 1 - st.p) : 0;
+      updateMarkers(whaleVis);
     }
 
     weights.fill(0);
@@ -365,7 +409,8 @@ export function createExperience() {
     else { weights[sa] = 1 - st.p; weights[sb] = st.p; }
     sound.mix(weights);
 
-    updateHeader();
+    updateInstruments();
+    updateMarquees(dt);
     if (env.finePointer) updateCursor();
   };
   gsap.ticker.add(tick);
