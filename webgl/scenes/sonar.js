@@ -1,16 +1,16 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
-import { $, $$, clamp, lerp, smoothstep, mqMobile, state, renderer, fsGeo, fsPass, makeRT, sizeRT, trackWorld, env } from '../core';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { $, $$, clamp, lerp, smoothstep, mqMobile, state, env, renderer, fsGeo, fsPass, makeRT, sizeRT, trackWorld } from '../core';
 import { NOISE, FS_VERT, MATCAP_FN } from '../glsl';
-import { makeBackground, makeSnow, makeMatcap, BaseScene } from '../helpers';
+import { BEAM_FN, makeBackground, makeSnow, Bubbles, bodyGeometry, finGeometry, BaseScene } from '../helpers';
+import { FishSchool } from '../fish';
 import { sound } from '../../audio/sound';
 
-/* -------------------------------------------------------------------------
-   Scene 3 — sonar seabed (how we work)
-   ------------------------------------------------------------------------- */
 export class SonarScene extends BaseScene {
   constructor() {
-    super({ top: '#0B1424', bottom: '#020306', glow: '#DDFF6B', grain: 0.05 });
+    super({ top: '#0B1424', bottom: '#020306', glow: '#DDFF6B', glowPos: [0.5, 0.25], grain: 0.05 });
+    this.distort = 0.35;
     this.camera.position.set(0, 2.8, 10);
     this.camera.lookAt(0, -1.2, 0);
     this.section = $('.how');
@@ -44,8 +44,8 @@ export class SonarScene extends BaseScene {
           }
           float fall = smoothstep(20.0, 2.0, r);
           float lure = exp(-length(p - uLure) * 0.55) * uLureOn;
-          vec3 col = uColor * (grid * 0.06 + range * 0.18 + wave * 0.24 + sweep * 0.22 + blips) * fall;
-          col += uColor * lure * 0.45;
+          vec3 col = uColor * (grid * 0.05 + range * 0.13 + wave * 0.16 + sweep * 0.1 + blips * 0.8) * fall;
+          col += uColor * lure * 0.3;
           gl_FragColor = vec4(col, 1.0);
         }`,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
