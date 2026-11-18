@@ -19,6 +19,7 @@ export const state = {
   started: false,
   intro: { v: 0 },          // 0 → 1 when the dive starts
   stage: { cur: 0, next: null, p: 0 },
+  scrollV: 0,
 };
 
 export function resetState() {
@@ -30,6 +31,7 @@ export function resetState() {
   state.intro.v = 0;
   Object.assign(state.mouse, { x: state.w / 2, y: state.h / 2, nx: 0, ny: 0, sx: 0, sy: 0, moved: false });
   Object.assign(state.stage, { cur: 0, next: null, p: 0 });
+  state.scrollV = 0;
   env.finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   env.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
